@@ -322,6 +322,8 @@ LatexCmds['∑'] = LatexCmds.sum = LatexCmds.summation = bind(BigSymbol,'\\sum '
 LatexCmds['∏'] = LatexCmds.prod = LatexCmds.product = bind(BigSymbol,'\\prod ','&prod;');
 LatexCmds.coprod = LatexCmds.coproduct = bind(BigSymbol,'\\coprod ','&#8720;');
 LatexCmds['∫'] = LatexCmds['int'] = LatexCmds.integral = bind(BigSymbol,'\\int ','&int;');
+LatexCmds['∫∫'] = LatexCmds['iint'] = LatexCmds.doubleIntegral = bind(BigSymbol, '\\iint', '&Int;');
+LatexCmds['∫∫∫'] = LatexCmds['iiint'] = LatexCmds.tripleIntegral = bind(BigSymbol, '\\iiint', '&tint;');
 
 
 
@@ -608,4 +610,3 @@ LatexCmds.lim = NonItalicizedFunction;
       NonItalicizedFunction;
   }
 }());
-
