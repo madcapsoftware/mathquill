@@ -1,0 +1,10 @@
+To modify MathQuill
+
+Please edit the source code in the mathquill folder that is not included in the Resources/ClientApp folder.  When the steps are run below, an executable
+set of files will be generated in the mathquill-$(VERSION) in Resources/ClientApp.
+
+1. Please install node.js from https://nodejs.org/
+2. Go to the mathquill folder and type the command through command line: "npm install".  This should all install all node module dependencies for this project
+in the node_modules folder.
+3. Run the command 'make'
+4. To publish the project to the Resources folder, run the command "make dist"
