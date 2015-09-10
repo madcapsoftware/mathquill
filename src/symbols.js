@@ -321,12 +321,18 @@ var BigSymbol = P(Symbol, function(_, _super) {
 LatexCmds['∑'] = LatexCmds.sum = LatexCmds.summation = bind(BigSymbol,'\\sum ','&sum;');
 LatexCmds['∏'] = LatexCmds.prod = LatexCmds.product = bind(BigSymbol,'\\prod ','&prod;');
 LatexCmds.coprod = LatexCmds.coproduct = bind(BigSymbol,'\\coprod ','&#8720;');
-LatexCmds['∫'] = LatexCmds['int'] = LatexCmds.integral = bind(BigSymbol,'\\int ','&int;');
-LatexCmds['∫∫'] = LatexCmds['iint'] = LatexCmds.doubleIntegral = bind(BigSymbol, '\\iint ', '&Int;');
-LatexCmds['∫∫∫'] = LatexCmds['iiint'] = LatexCmds.tripleIntegral = bind(BigSymbol, '\\iiint ', '&tint;');
 
 
+var Integrals = P(BigSymbol, function(_, _super) {
+  _.init = function(ch, html) {
+    _super.init.call(this, ch, html);
+  }
+});
 
+LatexCmds['∫'] = LatexCmds['int'] = LatexCmds.integral = bind(Integrals,'\\int ','&int;');
+LatexCmds['∫∫'] = LatexCmds['iint'] = LatexCmds.doubleIntegral = bind(Integrals, '\\iint ', '&Int;');
+LatexCmds['∫∫∫'] = LatexCmds['iiint'] = LatexCmds.tripleIntegral = bind(Integrals, '\\iiint ', '&tint;');
+LatexCmds.oint = bind(Integrals, '\\oint ', '&#8750;');
 //the canonical sets of numbers
 LatexCmds.N = LatexCmds.naturals = LatexCmds.Naturals =
   bind(VanillaSymbol,'\\mathbb{N}','&#8469;');
@@ -449,7 +455,7 @@ LatexCmds.heartsuit = bind(VanillaSymbol, '\\heartsuit ', '&#9825;');
 LatexCmds.spadesuit = bind(VanillaSymbol, '\\spadesuit ', '&#9824;');
 
 //variable-sized
-LatexCmds.oint = bind(VanillaSymbol, '\\oint ', '&#8750;');
+
 LatexCmds.bigcap = bind(VanillaSymbol, '\\bigcap ', '&#8745;');
 LatexCmds.bigcup = bind(VanillaSymbol, '\\bigcup ', '&#8746;');
 LatexCmds.bigsqcup = bind(VanillaSymbol, '\\bigsqcup ', '&#8852;');
