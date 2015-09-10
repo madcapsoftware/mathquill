@@ -134,41 +134,20 @@ var XRightArrow = LatexCmds.xrightarrow = P(MathCommand, function(_, _super) {
   };
 });
 
+//TODO: Make elements such as limits, products, coproducts, be prefix symbols.
+//     In other words, they act differently when used with sup and subscript Operators
+//     and the limits command to format them.
 var SupSub = P(MathCommand, function(_, _super) {
   _.init = function(ctrlSeq, tag, text) {
-    _super.init.call(this, ctrlSeq, '<'+tag+' class="non-leaf">&0</'+tag+'>', [ text ]);
+      _super.init.call(this, ctrlSeq, tag, [ text ]);
   };
   _.finalizeTree = function() {
-    //TODO: use inheritance
     pray('SupSub is only _ and ^',
-      this.ctrlSeq === '^' || this.ctrlSeq === '_'
+      this.ctrlSeq === '^' || this.ctrlSeq === '_' || this.ctrlSeq === 'limits'
     );
-
-    if (this.ctrlSeq === '_') {
-      this.down = this.ends[L];
-      this.ends[L].up = insLeftOfMeUnlessAtEnd;
-    }
-    else {
-      this.up = this.ends[L];
-      this.ends[L].down = insLeftOfMeUnlessAtEnd;
-    }
-    function insLeftOfMeUnlessAtEnd(cursor) {
-      // cursor.insLeftOf(cmd), unless cursor at the end of block, and every
-      // ancestor cmd is at the end of every ancestor block
-      var cmd = this.parent, ancestorCmd = cursor;
-      do {
-        if (ancestorCmd[R]) {
-          cursor.insLeftOf(cmd);
-          return false;
-        }
-        ancestorCmd = ancestorCmd.parent.parent;
-      } while (ancestorCmd !== cmd);
-      cursor.insRightOf(cmd);
-      return false;
-    }
   };
   _.latex = function() {
-    var latex = this.ends[L].latex();
+    var latex = this.ends[L].latex === undefined ? '\\' + this.ctrlSeq : this.ends[L].latex();
     if (latex.length === 1)
       return this.ctrlSeq + latex;
     else
@@ -187,21 +166,20 @@ var SupSub = P(MathCommand, function(_, _super) {
         this[R].respace();
     }
   };
-  _.respace = function() {
+  _.replaces = function(replacedFragment) {
+    replacedFragment.disown();
+    this.replacedFragment = replacedFragment;
+  };
+  _.evaluateLimitRule = function() {
     function IsValidCtrlSequence(mathNode, sequence) {
-      return mathNode[L].ctrlSeq === sequence || (
+      return mathNode[L].ctrlSeq === sequence ||
+      (
         mathNode[L] instanceof SupSub && mathNode[L].ctrlSeq != mathNode.ctrlSeq
         && mathNode[L][L] && mathNode[L][L].ctrlSeq === sequence
-      )
+      );
     }
 
-    /*if (
-      this[L].ctrlSeq === '\\int ' (
-        this[L] instanceof SupSub && this[L].ctrlSeq != this.ctrlSeq
-        && this[L][L] && this[L][L].ctrlSeq === '\\int '
-      )
-    ) */
-    if (IsValidCtrlSequence(this, '\\limits ') )//|| IsValidCtrlSequence(this, '\\iint ') || IsValidCtrlSequence(this, '\\iiint '))
+    if (IsValidCtrlSequence(this, 'limits') )
     {
       if (!this.limit) {
         this.limit = true;
@@ -214,139 +192,183 @@ var SupSub = P(MathCommand, function(_, _super) {
         this.jQ.removeClass('limit');
       }
     }
+  };
+  _.calculateSubscriptLeftOffset = function(symbol, leftWidth) {
+    if (symbol instanceof Integrals) {
+      return -leftWidth + this[L][L].jQ.outerWidth() * 0.755;
+    }
+    else {
+      return -leftWidth + this[L][L].jQ.outerWidth() * .75;
+    }
+  };
+  _.calculateSuperscriptOffset = function(symbol, symbolWidth) {
+    if (symbol instanceof BigSymbol && !(symbol instanceof Integrals) || symbol.ctrlSeq === '\\bigcap ' || symbol.ctrlSeq === '\\bigcup ') {
+      return symbolWidth * 0.75;
+    }
+    else {
+      return symbolWidth * 0.5;
+    }
+  };
+  _.replaceLimit = function(leftWidth) {
+    //this[L][L] should be lim.
+    //this[L] should be 'limits'
+    //this.ends[L] is the subscript contents
+    var limitWidth = this.ends[L].jQ.outerWidth();
+    var limSymbolWidth = this[L][L].jQ.outerWidth();
+    leftWidth = limitWidth / limSymbolWidth * 0.5 + leftWidth + limSymbolWidth;
+    this.jQ.css({
+      //Move the subscript two pixels up.
+      top : '-.375em'
+    });
+    return leftWidth;
+  };
+  //Scales down the the text cotents to align with the size of the font size.
+  _.set_CSS_Credentials = function(credentials) {
 
-    this.respaced = this[L] instanceof SupSub && this[L].ctrlSeq != this.ctrlSeq && !this[L].respaced;
-    if (this.respaced) {
-      var fontSize = +this.jQ.css('fontSize').slice(0,-2),
-        leftWidth = this[L].jQ.outerWidth(),
-        thisWidth = this.jQ.outerWidth();
+    var leftOffset = -credentials.leftOffset / credentials.fontSize
+    var marginRightOffset = .1 - min(credentials.thisWidth, credentials.leftOffset)/credentials.fontSize
+    //1px extra so it doesn't wrap in retarded browsers (Firefox 2, I think)
+
+    if (leftOffset !== undefined && marginRightOffset !== undefined) {
       this.jQ.css({
-        left: (this.limit && this.ctrlSeq === '_' ? -.25 : 0) - leftWidth/fontSize + 'em',
-        marginRight: .1 - min(thisWidth, leftWidth)/fontSize + 'em'
+        left: leftOffset + 'em',
+        marginRight: marginRightOffset + 'em',
+      });
+  }
+
+    if (credentials.topOffset !== undefined) {
+      this.jQ.css({
+        top : credentials.topOffset + 'em'
           //1px extra so it doesn't wrap in retarded browsers (Firefox 2, I think)
       });
     }
-    else if (this.limit && this.ctrlSeq === '_') {
-      this.jQ.css({
-        left: '-.25em',
-        marginRight: ''
+  };
+  _.respace = function() {
+
+    this.evaluateLimitRule();
+
+    var fontSize = +this.jQ.css('fontSize').slice(0,-2);
+    var leftWidth = this[L].jQ.outerWidth();
+    var thisWidth = this.jQ.outerWidth();
+    this.respaced = this[L] instanceof SupSub && this[L].ctrlSeq != this.ctrlSeq && !this[L].respaced;
+    if (this.respaced) {
+      if (this.limit) {
+        var prefixCtrlSeq = this[L][L].ctrlSeq;
+        //I know it's stupid but the subscript acts differently if the starting control sequence is a limit that is followed after a lim control sequence.
+        if (prefixCtrlSeq === '\\lim ') {
+          leftWidth = this.replaceLimit(leftWidth);
+        }
+        else {
+          leftWidth = this.calculateSubscriptLeftOffset(this[L][L], leftWidth);
+        }
+      }
+
+      this.set_CSS_Credentials({
+        leftOffset: leftWidth,
+        fontSize: fontSize,
+        thisWidth: thisWidth
       });
     }
     else {
-      this.jQ.css({
-        left: '',
-        marginRight: ''
-      });
+      if (this.limit) {
+        var symbolWidth = this[L][L][L].jQ.outerWidth();
+        var prefixCtrlSeq = this[L][L][L].ctrlSeq;
+        var totalWidth = this.calculateSuperscriptOffset(this[L][L][L], symbolWidth);
+        this.set_CSS_Credentials({
+          leftOffset: totalWidth,
+          fontSize: fontSize,
+          thisWidth: thisWidth,
+          //TODO: Make this a bit more dynamic based on symbol size.
+          topOffset : prefixCtrlSeq === '\\bigcap ' || prefixCtrlSeq === '\\bigcup ' ? 0 : -.2
+        });
+      }
+      else {
+        //Get rid of all spacing and have it align to the end of its parent.
+        this.jQ.css({
+          left: '',
+          marginRight: ''
+        });
+      }
     }
 
     if (this[R] instanceof SupSub)
       this[R].respace();
 
     return this;
+  };
+
+
+});
+
+var Sub = P(SupSub, function(_, _super) {
+  _.init = function(ctrlSeq, tag, text) {
+      _super.init.call(this, ctrlSeq, '<'+tag+' class="non-leaf">&0</'+tag+'>', text);
+  };
+  _.finalizeTree = function() {
+    pray('Sub is only  _',
+      this.ctrlSeq === '_'
+    );
+
+    this.down = this.ends[L];
+    this.ends[L].up = insLeftOfMeUnlessAtEnd;
+    function insLeftOfMeUnlessAtEnd(cursor) {
+      // cursor.insLeftOf(cmd), unless cursor at the end of block, and every
+      // ancestor cmd is at the end of every ancestor block
+      var cmd = this.parent, ancestorCmd = cursor;
+      do {
+        if (ancestorCmd[R]) {
+          cursor.insLeftOf(cmd);
+          return false;
+        }
+        ancestorCmd = ancestorCmd.parent.parent;
+      } while (ancestorCmd !== cmd);
+      cursor.insRightOf(cmd);
+      return false;
+    }
   };
 });
 
-var Limits = LatexCmds.limits = P(SupSub, function(_, _super) {
+var Sup = P(SupSub, function(_, _super) {
   _.init = function(ctrlSeq, tag, text) {
-    _super.init.call(this, ctrlSeq, '<'+tag+' class="non-leaf">&0</'+tag+'>', [ text ]);
+      _super.init.call(this, ctrlSeq, '<'+tag+' class="non-leaf">&0</'+tag+'>', text);
   };
-  _.ctrlSeq = '\\limits';
-  _.parser = function() {
-    var self = this;
-    var regex = Parser.regex;
-    var string = Parser.string;
-    var succeed = Parser.succeed;
-    var optWhitespace = Parser.optWhitespace;
-    var b = latexMathParser.optBlock;
-    ///^(?:[([|]|\\\{)/
-    return optWhitespace.then(Parser.digits).then(function(open) {
-      if (open.charAt(0) === '\\') open = open.slice(1);
-
-      var cmd = CharCmds[open]();
-
-    });
-    //TODO: Do something here! not sure what but I need the prefix if this command.
-    //return latexMathParser.optB.then(function(optBlock) {
-    //  return latexMathParser.block.map(function(block) {
-    //    var limits = Limits();
-
-        //Have left child be my parent
-    //    limits.adopt(this[L], this[R], 0);
-    //    limits.blocks = [this[R], 0];
-    //    return limits;
-        /*var xrightarrow = XRightArrow();
-        xrightarrow.blocks = [ optBlock, block ];
-        optBlock.adopt(xrightarrow, 0, 0);
-        block.adopt(xrightarrow, optBlock, 0);
-        return xrightarrow;*/
-  //    });
-  //  });
+  _.finalizeTree = function() {
+    pray('Sub is only  ^',
+      this.ctrlSeq === '^'
+    );
+    this.up = this.ends[L];
+    this.ends[L].down = insLeftOfMeUnlessAtEnd;
+    function insLeftOfMeUnlessAtEnd(cursor) {
+      // cursor.insLeftOf(cmd), unless cursor at the end of block, and every
+      // ancestor cmd is at the end of every ancestor block
+      var cmd = this.parent, ancestorCmd = cursor;
+      do {
+        if (ancestorCmd[R]) {
+          cursor.insLeftOf(cmd);
+          return false;
+        }
+        ancestorCmd = ancestorCmd.parent.parent;
+      } while (ancestorCmd !== cmd);
+      cursor.insRightOf(cmd);
+      return false;
+    }
   };
-  _.respace = function() {
-    function IsValidCtrlSequence(mathNode, sequence) {
-      return mathNode[L].ctrlSeq === sequence || (
-        mathNode[L] instanceof SupSub && mathNode[L].ctrlSeq != mathNode.ctrlSeq
-        && mathNode[L][L] && mathNode[L][L].ctrlSeq === sequence
-      )
-    }
+});
 
-    /*if (
-      this[L].ctrlSeq === '\\int ' (
-        this[L] instanceof SupSub && this[L].ctrlSeq != this.ctrlSeq
-        && this[L][L] && this[L][L].ctrlSeq === '\\int '
-      )
-    ) */
-    if (IsValidCtrlSequence(this, '\\int ') )//|| IsValidCtrlSequence(this, '\\iint ') || IsValidCtrlSequence(this, '\\iiint '))
-    {
-      if (!this.limit) {
-        this.limit = true;
-        this.jQ.addClass('limit');
-      }
-    }
-    else {
-      if (this.limit) {
-        this.limit = false;
-        this.jQ.removeClass('limit');
-      }
-    }
-
-    this.respaced = this[L] instanceof SupSub && this[L].ctrlSeq != this.ctrlSeq && !this[L].respaced;
-    if (this.respaced) {
-      var fontSize = +this.jQ.css('fontSize').slice(0,-2),
-        leftWidth = this[L].jQ.outerWidth(),
-        thisWidth = this.jQ.outerWidth();
-      this.jQ.css({
-        left: (this.limit && this.ctrlSeq === '_' ? -.25 : 0) - leftWidth/fontSize + 'em',
-        marginRight: .1 - min(thisWidth, leftWidth)/fontSize + 'em'
-          //1px extra so it doesn't wrap in retarded browsers (Firefox 2, I think)
-      });
-    }
-    else if (this.limit && this.ctrlSeq === '_') {
-      this.jQ.css({
-        left: '-.25em',
-        marginRight: ''
-      });
-    }
-    else {
-      this.jQ.css({
-        left: '',
-        marginRight: ''
-      });
-    }
-
-    if (this[R] instanceof SupSub)
-      this[R].respace();
-
-    return this;
+var Limit = P(SupSub, function(_, _super) {
+  _.init = function(ctrlSeq, tag, text) {
+      _super.init.call(this, ctrlSeq, '<span class=' + ctrlSeq + '></span>', text);
   };
 });
 
 LatexCmds.subscript =
-LatexCmds._ = bind(SupSub, '_', 'sub', '_');
+LatexCmds._ = bind(Sub, '_', 'sub', '_');
 
 LatexCmds.superscript =
 LatexCmds.supscript =
-LatexCmds['^'] = bind(SupSub, '^', 'sup', '**');
+LatexCmds['^'] = bind(Sup, '^', 'sup', '**');
+
+LatexCmds['limits'] = bind(Limit, 'limits');
 
 var Fraction =
 LatexCmds.frac =
