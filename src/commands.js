@@ -202,6 +202,7 @@ var SupSub = P(MathCommand, function(_, _super) {
     }
   };
   _.calculateSuperscriptOffset = function(symbol, symbolWidth) {
+    //TODO:
     if (symbol instanceof BigSymbol && !(symbol instanceof Integrals) || symbol.ctrlSeq === '\\bigcap ' || symbol.ctrlSeq === '\\bigcup ') {
       return symbolWidth * 0.75;
     }
@@ -261,8 +262,9 @@ var SupSub = P(MathCommand, function(_, _super) {
         else {
           leftWidth = this.calculateSubscriptLeftOffset(this[L][L], leftWidth);
         }
-      }
 
+
+      }
       this.set_CSS_Credentials({
         leftOffset: leftWidth,
         fontSize: fontSize,
@@ -273,7 +275,9 @@ var SupSub = P(MathCommand, function(_, _super) {
       if (this.limit) {
         var symbolWidth = this[L][L][L].jQ.outerWidth();
         var prefixCtrlSeq = this[L][L][L].ctrlSeq;
-        var totalWidth = this.calculateSuperscriptOffset(this[L][L][L], symbolWidth);
+        //TODO: Fix the issue and figure out why "thisWidth" is causing a pixel to be added for every 3rd character typed.
+        var leftCtrlSeqOffset = this[L].jQ.children().length > 2 ? parseFloat(this[L].jQ.css('left')) + leftWidth : 0;
+        var totalWidth = this.calculateSuperscriptOffset(this[L][L][L], symbolWidth) + leftCtrlSeqOffset;
         this.set_CSS_Credentials({
           leftOffset: totalWidth,
           fontSize: fontSize,
@@ -285,8 +289,8 @@ var SupSub = P(MathCommand, function(_, _super) {
       else {
         //Get rid of all spacing and have it align to the end of its parent.
         this.jQ.css({
-          left: '',
-          marginRight: ''
+          left: '0em',
+          marginRight: '0em'
         });
       }
     }

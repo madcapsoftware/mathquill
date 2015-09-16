@@ -160,7 +160,8 @@ var Parser = P(function(_, _super, Parser) {
 
       if (match) {
         var result = match[0];
-        return onSuccess(stream.slice(result.length), result);
+        var successResult = stream.slice(result.length);
+        return onSuccess(successResult, result);
       }
       else {
         return onFailure(stream, expected);
